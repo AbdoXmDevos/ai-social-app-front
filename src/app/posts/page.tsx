@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef, useCallback } from 'react';
 import { usePostsStore } from '@/store/usePostsStore';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -9,21 +9,50 @@ import { CircleX, Delete, Image, Loader2, Trash } from 'lucide-react';
 import { uploadImage } from '../api/cloudinary';
 import { Shimmer } from '@/components/ui/shimmer';
 import { toast } from 'sonner';
+import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
+import PostCard from '@/components/PostCard';
 
 const MAX_FILE_SIZE = 5 * 1024 * 1024; // 10MB in bytes
 const ALLOWED_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
 
 export default function PostsPage() {
-    const { posts, loadPosts, addPost, removePost } = usePostsStore();
+    const { posts, loadPosts, addPost, removePost, hasMore, currentPage } = usePostsStore();
     const [title, setTitle] = useState('');
     const [description, setDescription] = useState('');
     const [file, setFile] = useState<File | null>(null);
     const [isLoading, setIsLoading] = useState(false);
     const [isCreating, setIsCreating] = useState(false);
     const [deletingPostId, setDeletingPostId] = useState<string | null>(null);
+    const observer = useRef<IntersectionObserver>();
+
+    const lastPostElementRef = useCallback((node: HTMLDivElement) => {
+        if (isLoading) return;
+        if (observer.current) observer.current.disconnect();
+        observer.current = new IntersectionObserver(entries => {
+            if (entries[0].isIntersecting && hasMore) {
+                loadPosts(currentPage + 1);
+            }
+        });
+        if (node) observer.current.observe(node);
+    }, [isLoading, hasMore, currentPage, loadPosts]);
 
     useEffect(() => {
-        loadPosts();
+        const fetchUserAndPosts = async () => {
+            setIsLoading(true);
+            const supabase = createClientComponentClient();
+            const { data: { session } } = await supabase.auth.getSession();
+
+            if (session?.user?.id) {
+                console.log('Current user ID:', session.user.id);
+                await loadPosts(1);
+            } else {
+                console.log('No user logged in');
+                await loadPosts(1);
+            }
+            setIsLoading(false);
+        };
+
+        fetchUserAndPosts();
     }, [loadPosts]);
 
     function validateFile(file: File): boolean {
@@ -75,8 +104,17 @@ export default function PostsPage() {
             } else {
                 console.log('No file selected for upload');
             }
-            console.log('Creating post with data:', { title, description, imageUrl });
-            await addPost(title, description, imageUrl ?? '');
+            const supabase = createClientComponentClient();
+            const { data: { session } } = await supabase.auth.getSession();
+
+            if (!session?.user?.id) {
+                toast.error('You must be logged in to create a post');
+                return;
+            }
+
+            const userId = session.user.id.toString();
+            console.log('Creating post with data:', { title, description, imageUrl, userId });
+            await addPost(title, description, imageUrl ?? '', userId);
             console.log('Post created successfully');
             toast.success('Post created successfully!');
             setTitle('');
@@ -103,7 +141,7 @@ export default function PostsPage() {
 
     return (
         <div className="max-w-2xl mx-auto mt-10 p-4">
-            <h1 className="text-3xl font-bold mb-6">Create a Post</h1>
+            <h1 className="text-3xl font-bold mb-6 text-primary">Create a Post</h1>
             <div className="space-y-4 mb-8">
                 <div className="bg-card p-4 rounded-lg border border-secondary shadow mb-8">
                     <div className="flex items-center gap-4 mb-4">
@@ -124,7 +162,7 @@ export default function PostsPage() {
                         <div className="flex items-center gap-4">
                             <label className="cursor-pointer">
                                 <div className="w-10 h-10 rounded-full bg-secondary flex items-center justify-center">
-                                    <Image width={20} height={20}/>
+                                    <Image width={20} height={20} className="text-primary"/>
                                 </div>
                                 <input
                                     type="file"
@@ -148,13 +186,10 @@ export default function PostsPage() {
                                     <div className="flex flex-col text-sm text-primary truncate">
                                         <span className="font-semibold max-w-[200px] truncate">{file.name}</span>
                                         <span className="text-muted-foreground">{file.type}</span>
-                                        <span className="text-muted-foreground">
-                                        
-                                        </span>
                                     </div>
                                     {/* Remove file button */}
-                                    <CircleX 
-                                        className="w-4 h-4 cursor-pointer text-muted-foreground hover:text-destructive transition-colors" 
+                                    <CircleX
+                                        className="w-4 h-4 cursor-pointer text-muted-foreground hover:text-destructive transition-colors"
                                         onClick={() => setFile(null)}
                                     />
                                 </div>
@@ -165,7 +200,7 @@ export default function PostsPage() {
                         <Button
                             onClick={handleCreatePost}
                             disabled={!description.trim() && !file || isCreating}
-                            className="ml-auto"
+                            className="ml-auto bg-secondary hover:bg-secondary/80 text-primary"
                         >
                             {isCreating ? (
                                 <>
@@ -179,9 +214,9 @@ export default function PostsPage() {
                     </div>
                 </div>
             </div>
-            <h2 className="text-2xl font-semibold mb-4">Posts</h2>
+            <h2 className="text-2xl font-semibold mb-4 text-primary">Posts</h2>
             <div className="space-y-4">
-                {isLoading ? (
+                {isLoading && currentPage === 1 ? (
                     // Loading shimmer
                     Array.from({ length: 3 }).map((_, index) => (
                         <div key={index} className="border border-secondary rounded-lg bg-card p-5">
@@ -198,42 +233,35 @@ export default function PostsPage() {
                 ) : posts.length === 0 ? (
                     <p className="text-muted-foreground">No posts yet. Create one!</p>
                 ) : (
-                    posts.map((post) => (
-                        <div
-                            key={post.id}
-                            className="border border-secondary rounded-lg bg-card shadow-md hover:shadow-lg transition-shadow duration-300 transform hover:scale-[1.03] p-5"
-                        >
-                            <div className="flex justify-between items-start mb-3">
-                                <h3 className="text-2xl font-semibold text-primary max-w-[80%] truncate">{post.title}</h3>
-                                <Button
-                                    variant="destructive"
-                                    size="sm"
-                                    className="p-2 hover:bg-red-700 transition-colors rounded-full"
-                                    onClick={() => handleDeletePost(post.id)}
-                                    disabled={deletingPostId === post.id}
-                                    aria-label="Delete post"
-                                >
-                                    {deletingPostId === post.id ? (
-                                        <Loader2 className="w-5 h-5 animate-spin" />
-                                    ) : (
-                                        <Trash className="w-5 h-5" />
-                                    )}
-                                </Button>
-                            </div>
-
-                            <p className="text-white mb-4 leading-relaxed break-words whitespace-pre-wrap">{post.description}</p>
-
-                            {post.image_url && (
-                                <img
-                                    src={post.image_url}
-                                    alt="Post Image"
-                                    className="w-full h-auto rounded-md mb-4 border-2 border-secondary"
+                    posts.map((post, index) => {
+                        const username = post.users?.username || 'Unknown User';
+                        const userIcon = post.users?.profile_picture_url || '';
+                        const isLastElement = index === posts.length - 1;
+                        
+                        return (
+                            <div
+                                key={post.id}
+                                ref={isLastElement ? lastPostElementRef : undefined}
+                            >
+                                <PostCard
+                                    id={post.id}
+                                    username={username}
+                                    userIcon={userIcon}
+                                    description={post.description}
+                                    postImage={post.image_url}
+                                    postDate={post.created_at}
+                                    userId={post.user_id}
+                                    onDelete={handleDeletePost}
+                                    isDeleting={deletingPostId === post.id}
                                 />
-                            )}
-
-                            <p className="text-xs text-white italic text-right">{new Date(post.created_at).toLocaleString().split(',')[0]}</p>
-                        </div>
-                    ))
+                            </div>
+                        );
+                    })
+                )}
+                {isLoading && currentPage > 1 && (
+                    <div className="flex justify-center py-4">
+                        <Loader2 className="w-6 h-6 animate-spin text-primary" />
+                    </div>
                 )}
             </div>
         </div>
