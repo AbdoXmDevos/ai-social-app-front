@@ -5,25 +5,27 @@ import { usePostsStore } from '@/store/usePostsStore';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
-import { CircleX, Delete, Image, Loader2, Trash } from 'lucide-react';
+import { CircleX, Delete, Image as ImageIcon, Loader2, Trash } from 'lucide-react';
 import { uploadImage } from '../api/cloudinary';
 import { Shimmer } from '@/components/ui/shimmer';
 import { toast } from 'sonner';
 import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
 import PostCard from '@/components/PostCard';
+import NextImage from 'next/image';
 
 const MAX_FILE_SIZE = 5 * 1024 * 1024; // 10MB in bytes
 const ALLOWED_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
 
 export default function PostsPage() {
-    const { posts, loadPosts, addPost, removePost, hasMore, currentPage } = usePostsStore();
+    const { posts, loadPosts, addPost, removePost, updatePost, hasMore, currentPage } = usePostsStore();
     const [title, setTitle] = useState('');
     const [description, setDescription] = useState('');
     const [file, setFile] = useState<File | null>(null);
     const [isLoading, setIsLoading] = useState(false);
     const [isCreating, setIsCreating] = useState(false);
     const [deletingPostId, setDeletingPostId] = useState<string | null>(null);
-    const observer = useRef<IntersectionObserver>();
+    const [currentUser, setCurrentUser] = useState<any>(null);
+    const observer = useRef<IntersectionObserver | null>(null);
 
     const lastPostElementRef = useCallback((node: HTMLDivElement) => {
         if (isLoading) return;
@@ -43,7 +45,13 @@ export default function PostsPage() {
             const { data: { session } } = await supabase.auth.getSession();
 
             if (session?.user?.id) {
-                console.log('Current user ID:', session.user.id);
+                const { data: userData } = await supabase
+                    .from('users')
+                    .select('*')
+                    .eq('id', session.user.id)
+                    .single();
+                setCurrentUser(userData);
+                console.log('Current user:', userData);
                 await loadPosts(1);
             } else {
                 console.log('No user logged in');
@@ -139,6 +147,16 @@ export default function PostsPage() {
         }
     }
 
+    async function handleEditPost(postId: string, newDescription: string, newImageUrl: string) {
+        try {
+            await updatePost(postId, newDescription, newImageUrl);
+            toast.success('Post updated successfully!');
+        } catch (err) {
+            console.error('Error updating post:', err);
+            toast.error('Failed to update post. Please try again.');
+        }
+    }
+
     return (
         <div className="max-w-2xl mx-auto mt-10 p-4">
             <h1 className="text-3xl font-bold mb-6 text-primary">Create a Post</h1>
@@ -146,14 +164,34 @@ export default function PostsPage() {
                 <div className="bg-card p-4 rounded-lg border border-secondary shadow mb-8">
                     <div className="flex items-center gap-4 mb-4">
                         {/* Avatar */}
-                        <div className="w-12 h-12 rounded-full bg-secondary" />
+                        <div className="w-12 h-12 rounded-full bg-secondary overflow-hidden">
+                            {currentUser?.profile_picture_url ? (
+                                <NextImage
+                                    src={currentUser.profile_picture_url}
+                                    alt={currentUser.username || 'User'}
+                                    width={48}
+                                    height={48}
+                                    className="w-full h-full object-cover"
+                                />
+                            ) : (
+                                <div className="w-full h-full flex items-center justify-center text-primary">
+                                    {(currentUser?.username || 'U').charAt(0).toUpperCase()}
+                                </div>
+                            )}
+                        </div>
 
                         {/* Input */}
-                        <Input
-                            placeholder="What's new, Abdo?"
+                        <Textarea
+                            placeholder={`What's new, ${currentUser?.username || 'User'}?`}
                             value={description}
                             onChange={(e) => setDescription(e.target.value)}
-                            className="flex-1 bg-background text-primary placeholder:text-muted-foreground"
+                            className="flex-1 bg-background text-primary placeholder:text-muted-foreground resize-none min-h-[48px] max-h-[200px] overflow-y-auto"
+                            style={{ height: 'auto' }}
+                            onInput={(e) => {
+                                const target = e.target as HTMLTextAreaElement;
+                                target.style.height = 'auto';
+                                target.style.height = `${target.scrollHeight}px`;
+                            }}
                         />
                     </div>
 
@@ -162,7 +200,7 @@ export default function PostsPage() {
                         <div className="flex items-center gap-4">
                             <label className="cursor-pointer">
                                 <div className="w-10 h-10 rounded-full bg-secondary flex items-center justify-center">
-                                    <Image width={20} height={20} className="text-primary"/>
+                                    <ImageIcon width={20} height={20} className="text-primary"/>
                                 </div>
                                 <input
                                     type="file"
@@ -251,8 +289,10 @@ export default function PostsPage() {
                                     postImage={post.image_url}
                                     postDate={post.created_at}
                                     userId={post.user_id}
+                                    likes={post.likes || 0}
                                     onDelete={handleDeletePost}
                                     isDeleting={deletingPostId === post.id}
+                                    onEdit={handleEditPost}
                                 />
                             </div>
                         );

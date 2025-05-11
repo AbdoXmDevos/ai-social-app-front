@@ -4,10 +4,12 @@ import { usePathname } from "next/navigation";
 import ThemeToggle from "@/components/ui/ThemeToggle";
 import { Home, User, LogOut, Globe, UserCircle } from "lucide-react";
 import { useState } from "react";
+import { usePostsStore } from "@/store/usePostsStore";
 
 export default function Navbar() {
   const pathname = usePathname();
   const [isProfileOpen, setIsProfileOpen] = useState(false);
+  const { loadPosts } = usePostsStore();
 
   // Hide navbar on login and register pages
   if (pathname === "/auth/login" || pathname === "/auth/register") {
@@ -20,7 +22,11 @@ export default function Navbar() {
         <span className="text-xl font-bold ml-4 text-[var(--primary)]">LOGO HERE</span>
       </div>
       <div className="flex gap-4 items-center text-lg font-semibold absolute left-1/2 transform -translate-x-1/2">
-        <Link href="/posts" className="flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-[var(--secondary)] transition-colors text-[var(--primary)]">
+        <Link 
+          href="/posts" 
+          className="flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-[var(--secondary)] transition-colors text-[var(--primary)]"
+          onClick={() => loadPosts(1)}
+        >
           <div className="material-icons text-2xl">
             <Home />
           </div>

@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { Post, fetchPosts, createPost, deletePost } from '@/app/api/posts';
+import { Post, fetchPosts, createPost, deletePost, updatePost as updatePostApi, toggleLike as toggleLikeApi } from '@/app/api/posts';
 import { useAuthStore } from './useAuthStore';
 import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
 
@@ -12,6 +12,8 @@ type PostsStore = {
   loadUserPosts: (userId: string) => Promise<void>;
   addPost: (title: string, description: string, imageUrl: string, userId: string) => Promise<void>;
   removePost: (id: string) => Promise<void>;
+  updatePost: (id: string, description: string, imageUrl: string) => Promise<void>;
+  toggleLike: (postId: string, userId: string) => Promise<void>;
   resetPosts: () => void;
 };
 
@@ -56,6 +58,30 @@ export const usePostsStore = create<PostsStore>((set, get) => ({
     const { currentPage } = get();
     const { posts: data, totalCount, hasMore } = await fetchPosts(undefined, currentPage);
     set({ posts: data, totalCount, hasMore });
+  },
+
+  updatePost: async (id, description, imageUrl) => {
+    await updatePostApi(id, description, imageUrl);
+    // Reload current page after update
+    const { currentPage } = get();
+    const { posts: data, totalCount, hasMore } = await fetchPosts(undefined, currentPage);
+    set({ posts: data, totalCount, hasMore });
+  },
+
+  toggleLike: async (postId, userId) => {
+    await toggleLikeApi(postId, userId);
+    // Update the post's likes count in the store
+    set(state => ({
+      posts: state.posts.map(post => {
+        if (post.id === postId) {
+          return {
+            ...post,
+            likes: post.likes + (post.likes === 0 ? 1 : -1)
+          };
+        }
+        return post;
+      })
+    }));
   },
 
   resetPosts: () => {

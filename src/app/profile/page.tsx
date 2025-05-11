@@ -1,15 +1,20 @@
 "use client"
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
 import Link from 'next/link';
 import { usePostsStore } from '@/store/usePostsStore';
-import { Grid, RefreshCw, Bookmark, User } from 'lucide-react';
+import { Grid, RefreshCw, Bookmark, User, Camera } from 'lucide-react';
+import ImageCropModal from '@/components/ImageCropModal';
+import { uploadImage } from '../api/cloudinary';
+import { toast } from 'sonner';
+
 interface UserProfile {
   id: string;
   email: string;
   username: string;
   avatar?: string;
   bio?: string;
+  profile_picture_url?: string;
 }
 
 // Using Post type from the store instead of defining it here
@@ -19,6 +24,9 @@ export default function ProfilePage() {
   const [user, setUser] = useState<UserProfile | null>(null);
   const { posts, loadUserPosts } = usePostsStore();
   const [loading, setLoading] = useState(true);
+  const [isCropModalOpen, setIsCropModalOpen] = useState(false);
+  const [selectedImage, setSelectedImage] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     const fetchProfileAndPosts = async () => {
@@ -45,6 +53,56 @@ export default function ProfilePage() {
     fetchProfileAndPosts();
   }, [loadUserPosts]);
 
+  const handleImageSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        setSelectedImage(e.target?.result as string);
+        setIsCropModalOpen(true);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const handleCropSave = async (croppedImage: Blob) => {
+    try {
+      setLoading(true);
+      const supabase = createClientComponentClient();
+      
+      // Convert Blob to File
+      const file = new File([croppedImage], 'profile-picture.jpg', { type: 'image/jpeg' });
+      
+      // Upload to Cloudinary
+      const imageUrl = await uploadImage(file);
+
+      // Update user profile in Supabase
+      const { error } = await supabase
+        .from('users')
+        .update({ profile_picture_url: imageUrl })
+        .eq('id', user?.id);
+
+      if (error) throw error;
+
+      // Refresh user data
+      const { data: userData } = await supabase
+        .from('users')
+        .select('*')
+        .eq('id', user?.id)
+        .single();
+
+      setUser(userData);
+      toast.success('Profile picture updated successfully');
+    } catch (error) {
+      console.error('Error updating profile picture:', error);
+      toast.error('Failed to update profile picture');
+    } finally {
+      setLoading(false);
+      setIsCropModalOpen(false);
+      setSelectedImage(null);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-[var(--background)] text-[var(--foreground)] flex flex-col items-center">
       {/* Gradient Header */}
@@ -55,12 +113,25 @@ export default function ProfilePage() {
       {/* Profile Card */}
       <div className="w-full max-w-4xl bg-[var(--card)] rounded-2xl shadow-lg -mt-20 flex flex-col md:flex-row items-center md:items-end p-8 relative z-10 border border-[var(--border)]">
         {/* Avatar */}
-        <div className="w-36 h-36 rounded-full border-4 border-[var(--background)] bg-[var(--muted)] flex items-center justify-center shadow-lg -mt-20 md:mt-0 md:-ml-20 overflow-hidden">
-          {user && user.avatar ? (
-            <img src={user.avatar} alt="avatar" className="w-full h-full object-cover" />
+        <div className="relative w-36 h-36 rounded-full border-4 border-[var(--background)] bg-[var(--muted)] flex items-center justify-center shadow-lg -mt-20 md:mt-0 md:-ml-20 overflow-hidden group">
+          {user && user.profile_picture_url ? (
+            <img src={user.profile_picture_url} alt="avatar" className="w-full h-full object-cover" />
           ) : (
             <span className="text-5xl text-[var(--muted-foreground)]">◎</span>
           )}
+          <button
+            onClick={() => fileInputRef.current?.click()}
+            className="absolute inset-0 bg-black/50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
+          >
+            <Camera className="w-8 h-8 text-white" />
+          </button>
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/*"
+            onChange={handleImageSelect}
+            className="hidden"
+          />
         </div>
         {/* Info */}
         <div className="flex-1 ml-0 md:ml-8 mt-6 md:mt-0">
@@ -146,6 +217,16 @@ export default function ProfilePage() {
           <div className="col-span-full text-center text-[var(--muted-foreground)]">No posts yet.</div>
         )}
       </div>
+
+      <ImageCropModal
+        isOpen={isCropModalOpen}
+        onClose={() => {
+          setIsCropModalOpen(false);
+          setSelectedImage(null);
+        }}
+        onSave={handleCropSave}
+        imageUrl={selectedImage || ''}
+      />
     </div>
   );
 }

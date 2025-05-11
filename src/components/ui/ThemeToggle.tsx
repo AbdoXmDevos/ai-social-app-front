@@ -14,6 +14,7 @@ export default function ThemeToggle() {
   const { theme, setTheme, systemTheme } = useTheme();
   const [open, setOpen] = useState(false);
   const [mounted, setMounted] = useState(false);
+  const [selectedTheme, setSelectedTheme] = useState('');
 
   useEffect(() => {
     setMounted(true);
@@ -41,8 +42,9 @@ export default function ThemeToggle() {
           {themes.map((t) => (
             <button
               key={t.value}
-              className={`w-full flex items-center gap-2 px-4 py-2 justify-center hover:bg-[var(--secondary)] transition-colors text-[var(--primary)] ${theme === t.value ? 'font-bold' : ''}`}
+              className={`w-full flex items-center gap-2 px-4 py-2 justify-center hover:bg-[var(--secondary)] transition-colors text-[var(--primary)] `}
               onClick={() => {
+                setSelectedTheme(t.value)
                 setTheme(t.value);
                 setOpen(false);
               }}

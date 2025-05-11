@@ -126,7 +126,7 @@ export default function LoginPage() {
             <button className="flex-1 py-2 rounded-l-lg bg-background text-primary font-medium border border-secondary border-r-0">Login</button>
             <button 
               onClick={() => handleNavigate('/auth/register')}
-              className="flex-1 py-2 rounded-r-lg bg-muted text-muted-foreground font-medium border border-secondary border-l-0 text-center hover:bg-muted/80 transition-colors"
+              className="cursor-pointer flex-1 py-2 rounded-r-lg bg-muted text-muted-foreground font-medium border border-secondary border-l-0 text-center hover:bg-muted/80 transition-colors"
             >
               Sign Up
             </button>
@@ -176,7 +176,7 @@ export default function LoginPage() {
             </div>
             <Button
               type="submit"
-              className="w-full bg-primary text-primary-foreground hover:bg-primary/90"
+              className="cursor-pointer w-full bg-primary text-primary-foreground hover:bg-primary/90"
               disabled={isLoading}
             >
               {isLoading ? (
