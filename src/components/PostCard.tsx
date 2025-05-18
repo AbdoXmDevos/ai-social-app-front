@@ -6,6 +6,9 @@ import EditPostModal from './EditPostModal';
 import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
 import { toggleLike } from '@/app/api/posts';
 import { toast } from 'sonner';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
+import { DeletePostConfirmation } from './DeletePostConfirmation';
 
 interface PostCardProps {
   id: string;
@@ -35,6 +38,7 @@ export default function PostCard({
   onEdit
 }: PostCardProps) {
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [isLiked, setIsLiked] = useState(false);
   const [likesCount, setLikesCount] = useState(likes);
@@ -125,7 +129,7 @@ export default function PostCard({
             {onDelete && (
               <button
                 className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-500/10 transition-colors rounded-full"
-                onClick={() => onDelete(id)}
+                onClick={() => setIsDeleteModalOpen(true)}
                 disabled={isDeleting}
                 aria-label="Delete post"
               >
@@ -140,7 +144,28 @@ export default function PostCard({
         )}
       </div>
 
-      <p className="text-white mb-4 leading-relaxed break-words whitespace-pre-wrap">{description}</p>
+      <div className="text-white mb-4 leading-relaxed break-words prose prose-invert max-w-none">
+        <ReactMarkdown
+          remarkPlugins={[remarkGfm]}
+          components={{
+            // Disable image rendering but keep the alt text
+            img: ({node, ...props}) => <span className="text-blue-400">[Image: {props.alt || 'Embedded image'}]</span>,
+            // Allow links to work normally
+            a: ({node, children, ...props}) => (
+              <a
+                href={props.href}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-blue-400 hover:underline"
+              >
+                {children}
+              </a>
+            )
+          }}
+        >
+          {description}
+        </ReactMarkdown>
+      </div>
 
       {postImage && (
         <div className="relative w-full aspect-auto rounded-xl overflow-hidden mb-4 border border-gray-800">
@@ -176,7 +201,7 @@ export default function PostCard({
             <span className="text-sm font-medium">Comment</span>
           </button>
 
-          
+
         </div>
       </div>
 
@@ -187,6 +212,18 @@ export default function PostCard({
           onSave={(newDescription, newImageUrl) => onEdit(id, newDescription, newImageUrl)}
           initialDescription={description}
           initialImageUrl={postImage}
+        />
+      )}
+
+      {onDelete && (
+        <DeletePostConfirmation
+          isOpen={isDeleteModalOpen}
+          onClose={() => setIsDeleteModalOpen(false)}
+          onConfirm={() => {
+            if (onDelete) onDelete(id);
+            setIsDeleteModalOpen(false);
+          }}
+          isDeleting={isDeleting || false}
         />
       )}
     </div>

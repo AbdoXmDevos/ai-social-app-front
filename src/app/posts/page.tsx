@@ -1,31 +1,26 @@
 'use client';
 
-import { useEffect, useState, useRef, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { usePostsStore } from '@/store/usePostsStore';
-import { Input } from '@/components/ui/input';
-import { Button } from '@/components/ui/button';
-import { Textarea } from '@/components/ui/textarea';
-import { CircleX, Image as ImageIcon, Loader2, Trash } from 'lucide-react';
-import { uploadImage } from '../api/cloudinary';
+import { Loader2 } from 'lucide-react';
 import { Shimmer } from '@/components/ui/shimmer';
 import { toast } from 'sonner';
 import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
 import PostCard from '@/components/PostCard';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import SuggestedTools from '@/components/SuggestedTools';
+import { PostDeletedNotification } from '@/components/DeletePostConfirmation';
+import CreatePostCard from '@/components/CreatePostCard';
+import CreatePostModal from '@/components/CreatePostModal';
 
-const MAX_FILE_SIZE = 5 * 1024 * 1024; // 10MB in bytes
-const ALLOWED_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+
 
 export default function PostsPage() {
     const { posts, loadPosts, addPost, removePost, updatePost, hasMore, currentPage } = usePostsStore();
-    const [title, setTitle] = useState('');
-    const [description, setDescription] = useState('');
-    const [file, setFile] = useState<File | null>(null);
     const [isLoading, setIsLoading] = useState(false);
-    const [isCreating, setIsCreating] = useState(false);
     const [deletingPostId, setDeletingPostId] = useState<string | null>(null);
     const [currentUser, setCurrentUser] = useState<any>(null);
+    const [showDeletedNotification, setShowDeletedNotification] = useState(false);
+    const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
     const observer = useRef<IntersectionObserver | null>(null);
 
     const lastPostElementRef = useCallback((node: HTMLDivElement) => {
@@ -64,55 +59,8 @@ export default function PostsPage() {
         fetchUserAndPosts();
     }, [loadPosts]);
 
-    function validateFile(file: File): boolean {
-        if (!ALLOWED_IMAGE_TYPES.includes(file.type)) {
-            toast.error('Invalid file type. Please upload a JPEG, PNG, GIF, or WebP image.');
-            return false;
-        }
-
-        if (file.size > MAX_FILE_SIZE) {
-            toast.error('File size too large. Maximum size is 10MB.');
-            return false;
-        }
-
-        return true;
-    }
-
-    function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
-        const selectedFile = e.target.files?.[0];
-        if (selectedFile) {
-            if (validateFile(selectedFile)) {
-                setFile(selectedFile);
-            } else {
-                // Reset the file input
-                e.target.value = '';
-                setFile(null);
-            }
-        }
-    }
-
-    async function handleCreatePost() {
+    async function handleCreatePost(description: string, imageUrl: string) {
         try {
-            setIsCreating(true);
-            console.log('Starting post creation...');
-            console.log('File state:', file);
-            let imageUrl: string | undefined;
-            if (file) {
-                if (!validateFile(file)) {
-                    return;
-                }
-                console.log('Attempting to upload image to Cloudinary...');
-                try {
-                    imageUrl = await uploadImage(file);
-                    console.log('Image upload response:', imageUrl);
-                } catch (uploadError) {
-                    console.error('Error uploading to Cloudinary:', uploadError);
-                    toast.error('Failed to upload image. Please try again.');
-                    throw uploadError;
-                }
-            } else {
-                console.log('No file selected for upload');
-            }
             const supabase = createClientComponentClient();
             const { data: { session } } = await supabase.auth.getSession();
 
@@ -122,18 +70,14 @@ export default function PostsPage() {
             }
 
             const userId = session.user.id.toString();
-            console.log('Creating post with data:', { title, description, imageUrl, userId });
-            await addPost(title, description, imageUrl ?? '', userId);
+            console.log('Creating post with data:', { description, imageUrl, userId });
+            await addPost('', description, imageUrl, userId);
             console.log('Post created successfully');
             toast.success('Post created successfully!');
-            setTitle('');
-            setDescription('');
-            setFile(null);
         } catch (err) {
             console.error('Error in handleCreatePost:', err);
             toast.error('Failed to create post. Please try again.');
-        } finally {
-            setIsCreating(false);
+            throw err;
         }
     }
 
@@ -141,8 +85,14 @@ export default function PostsPage() {
         try {
             setDeletingPostId(postId);
             await removePost(postId);
+
+            // Show notification and scroll to top
+            setShowDeletedNotification(true);
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+
         } catch (err) {
             console.error('Error deleting post:', err);
+            toast.error('Failed to delete post. Please try again.');
         } finally {
             setDeletingPostId(null);
         }
@@ -160,91 +110,17 @@ export default function PostsPage() {
 
     return (
         <div className="max-w-7xl mx-auto mt-10 p-4">
+            <PostDeletedNotification
+                isVisible={showDeletedNotification}
+                onClose={() => setShowDeletedNotification(false)}
+            />
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 {/* Main content - Posts */}
                 <div className="md:col-span-2 space-y-4">
-                    <div className="bg-[#1B2730] p-4 rounded-lg border border-gray shadow mb-8">
-                        <div className="flex items-center gap-3 mb-4">
-                            {/* Avatar */}
-                            <Avatar className="w-10 h-10 border border-gray-700">
-                                {currentUser?.profile_picture_url ? (
-                                    <AvatarImage
-                                        src={currentUser.profile_picture_url}
-                                        alt={currentUser.username || 'User'}
-                                    />
-                                ) : (
-                                    <AvatarFallback className="bg-gray-700 text-white">
-                                        {(currentUser?.username || 'U').charAt(0).toUpperCase()}
-                                    </AvatarFallback>
-                                )}
-                            </Avatar>
-
-                            {/* Input */}
-                            <Textarea
-                                placeholder="What's happening?"
-                                value={description}
-                                onChange={(e) => setDescription(e.target.value)}
-                                className="flex-1 bg-transparent border-none text-white placeholder:text-gray-500 resize-none min-h-[48px] max-h-[200px] overflow-y-auto focus:ring-0 focus:outline-none"
-                                style={{ height: 'auto' }}
-                                onInput={(e) => {
-                                    const target = e.target as HTMLTextAreaElement;
-                                    target.style.height = 'auto';
-                                    target.style.height = `${target.scrollHeight}px`;
-                                }}
-                            />
-                        </div>
-
-                        {/* Show preview if file selected */}
-                        {file && (
-                            <div className="mb-4 relative">
-                                <img
-                                    src={URL.createObjectURL(file)}
-                                    alt="Preview"
-                                    className="w-full max-h-80 object-cover rounded-lg"
-                                />
-                                <button
-                                    className="absolute top-2 right-2 bg-black bg-opacity-50 rounded-full p-1 hover:bg-opacity-70 transition-colors"
-                                    onClick={() => setFile(null)}
-                                >
-                                    <CircleX className="w-5 h-5 text-white" />
-                                </button>
-                            </div>
-                        )}
-
-                        <div className="flex justify-between items-center">
-                            {/* Media buttons */}
-                            <div className="flex items-center gap-2">
-                                <label className="cursor-pointer">
-                                    <div className="flex items-center justify-center w-10 h-10 rounded-full hover:bg-[#1a1e23] transition-colors">
-                                        <ImageIcon className="w-5 h-5 text-[#1d9bf0]" />
-                                    </div>
-                                    <input
-                                        type="file"
-                                        className="hidden"
-                                        title="Upload Image"
-                                        accept="image/jpeg,image/png,image/gif,image/webp"
-                                        onChange={handleFileChange}
-                                    />
-                                </label>
-                            </div>
-
-                            {/* Post Button */}
-                            <Button
-                                onClick={handleCreatePost}
-                                disabled={!description.trim() && !file || isCreating}
-                                className="rounded-full bg-[#1d9bf0] hover:bg-[#1a8cd8] text-white font-bold px-5 py-2"
-                            >
-                                {isCreating ? (
-                                    <>
-                                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                                        Posting...
-                                    </>
-                                ) : (
-                                    'Post'
-                                )}
-                            </Button>
-                        </div>
-                    </div>
+                    <CreatePostCard
+                        onClick={() => setIsCreateModalOpen(true)}
+                        currentUser={currentUser}
+                    />
 
                     <div className="space-y-4">
                         {isLoading && currentPage === 1 ? (
@@ -306,6 +182,14 @@ export default function PostsPage() {
                     <SuggestedTools />
                 </div>
             </div>
+
+            {/* Create Post Modal */}
+            <CreatePostModal
+                isOpen={isCreateModalOpen}
+                onClose={() => setIsCreateModalOpen(false)}
+                onCreatePost={handleCreatePost}
+                currentUser={currentUser}
+            />
         </div>
     );
 }

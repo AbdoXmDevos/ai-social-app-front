@@ -1,8 +1,8 @@
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { Textarea } from '@/components/ui/textarea';
 import { X, Image as ImageIcon } from 'lucide-react';
 import { uploadImage } from '@/app/api/cloudinary';
+import MarkdownEditor from './MarkdownEditor';
 
 interface EditPostModalProps {
   isOpen: boolean;
@@ -51,11 +51,12 @@ export default function EditPostModal({
         </div>
 
         <div className="space-y-4">
-          <Textarea
-            placeholder="What's on your mind?"
+          <MarkdownEditor
+            placeholder="What's on your mind? *Markdown* is **supported**!"
             value={description}
-            onChange={(e) => setDescription(e.target.value)}
-            className="min-h-[100px]"
+            onChange={setDescription}
+            className="w-full"
+            minHeight="100px"
           />
 
           <div className="flex items-center gap-4">
@@ -103,4 +104,4 @@ export default function EditPostModal({
       </div>
     </div>
   );
-} 
+}

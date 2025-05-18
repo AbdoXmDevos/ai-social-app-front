@@ -120,3 +120,76 @@
     @apply bg-background text-foreground;
   }
 }
+
+/* Markdown styling */
+.prose {
+  @apply text-white;
+}
+
+.prose a {
+  @apply text-blue-400 hover:text-blue-300 transition-colors;
+}
+
+.prose strong {
+  @apply font-bold text-white;
+}
+
+.prose em {
+  @apply italic text-gray-300;
+}
+
+.prose h1, .prose h2, .prose h3, .prose h4, .prose h5, .prose h6 {
+  @apply text-white font-bold;
+}
+
+.prose h1 {
+  @apply text-2xl mt-6 mb-4;
+}
+
+.prose h2 {
+  @apply text-xl mt-5 mb-3;
+}
+
+.prose h3 {
+  @apply text-lg mt-4 mb-2;
+}
+
+.prose ul {
+  @apply list-disc pl-5 my-3;
+}
+
+.prose ol {
+  @apply list-decimal pl-5 my-3;
+}
+
+.prose blockquote {
+  @apply border-l-4 border-blue-500 pl-4 italic text-gray-300 my-3;
+}
+
+.prose code {
+  @apply bg-gray-800 px-1 py-0.5 rounded text-gray-200 text-sm;
+}
+
+.prose pre {
+  @apply bg-gray-800 p-3 rounded-md overflow-x-auto my-3;
+}
+
+.prose pre code {
+  @apply bg-transparent p-0 text-gray-200;
+}
+
+/* Animations */
+@keyframes slide-down {
+  0% {
+    transform: translateY(-100%);
+    opacity: 0;
+  }
+  100% {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+.animate-slide-down {
+  animation: slide-down 0.3s ease-out forwards;
+}

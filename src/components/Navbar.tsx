@@ -60,8 +60,15 @@ export default function Navbar() {
     <nav className="w-full flex items-center justify-between bg-[#05141C]  py-2 px-4 sticky top-0 z-30">
       {/* Left Side - Brand */}
       <div className="flex items-center">
-        <NextImage src="/icon.png" alt="Logo" width={32} height={32}/>
-        <span className="text-white font-bold text-xl">Social App</span>
+        <div className="ml-12">
+          <NextImage
+            src="/icon.png"
+            alt="Logo"
+            width={32}
+            height={32}
+            className="brightness-0 invert" // This makes the image white
+          />
+        </div>
       </div>
 
       {/* Center - Home */}
