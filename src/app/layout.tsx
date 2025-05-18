@@ -26,15 +26,13 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" suppressHydrationWarning>
+    <html lang="en" suppressHydrationWarning className="dark">
       <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased bg-background text-white`}
+        className={`${geistSans.variable} ${geistMono.variable} antialiased bg-background text-white dark`}
       >
-        <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
-          <body className={`${geistSans.variable} ${geistMono.variable} antialiased bg-background text-white`}>
-            <Navbar />
-            {children}
-          </body>
+        <ThemeProvider attribute="class" defaultTheme="dark" enableSystem={false}>
+          <Navbar />
+          {children}
         </ThemeProvider>
       </body>
     </html>

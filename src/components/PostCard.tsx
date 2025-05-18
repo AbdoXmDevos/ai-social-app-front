@@ -1,5 +1,4 @@
-import { Trash, Loader2, Heart, MessageCircle, Pencil } from 'lucide-react';
-import { Button } from '@/components/ui/button';
+import { Trash, Loader2, Heart, MessageCircle, Pencil, Share, Repeat2 } from 'lucide-react';
 import NextImage from 'next/image';
 import Link from 'next/link';
 import { useState, useEffect } from 'react';
@@ -46,17 +45,17 @@ export default function PostCard({
     const fetchUserData = async () => {
       const supabase = createClientComponentClient();
       const { data: { session } } = await supabase.auth.getSession();
-      
+
       if (session?.user?.id) {
         setCurrentUserId(session.user.id);
-        
+
         // Check if the post is liked by the current user
         const { data: userData } = await supabase
           .from('users')
           .select('liked_posts')
           .eq('id', session.user.id)
           .single();
-        
+
         if (userData?.liked_posts) {
           setIsLiked(userData.liked_posts.includes(id));
         }
@@ -91,10 +90,10 @@ export default function PostCard({
   const isCreator = currentUserId === userId;
 
   return (
-    <div className="border border-secondary rounded-lg bg-card shadow-md hover:shadow-lg transition-shadow duration-300 p-5">
+    <div className="border border-gray rounded-lg bg-[#1B2730] shadow-md hover:shadow-lg transition-shadow duration-300 p-5">
       <div className="flex justify-between items-start mb-3">
         <Link href={`/profile/${userId}`} className="flex items-center gap-3 hover:opacity-80 transition-opacity">
-          <div className="w-10 h-10 rounded-full bg-secondary overflow-hidden">
+          <div className="w-10 h-10 rounded-full bg-gray-700 overflow-hidden">
             {userIcon ? (
               <NextImage
                 src={userIcon}
@@ -104,51 +103,47 @@ export default function PostCard({
                 className="w-full h-full object-cover"
               />
             ) : (
-              <div className="w-full h-full flex items-center justify-center text-primary">
+              <div className="w-full h-full flex items-center justify-center text-white">
                 {username.charAt(0).toUpperCase()}
               </div>
             )}
           </div>
           <div>
-            <h3 className="text-lg font-semibold text-primary">{username}</h3>
-            <p className="text-xs text-muted-foreground">{new Date(postDate).toLocaleString()}</p>
+            <h3 className="text-lg font-semibold text-white">{username}</h3>
+            <p className="text-xs text-gray-400">{new Date(postDate).toLocaleString()}</p>
           </div>
         </Link>
         {isCreator && (
           <div className="flex gap-2">
-            <Button
-              variant="ghost"
-              size="sm"
-              className="p-2 hover:bg-secondary transition-colors rounded-full"
+            <button
+              className="p-2 text-gray-400 hover:text-blue-400 hover:bg-blue-400/10 transition-colors rounded-full"
               onClick={() => setIsEditModalOpen(true)}
               aria-label="Edit post"
             >
               <Pencil className="w-5 h-5" />
-            </Button>
+            </button>
             {onDelete && (
-              <Button
-                variant="destructive"
-                size="sm"
-                className="p-2 hover:bg-red-700 transition-colors rounded-full"
+              <button
+                className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-500/10 transition-colors rounded-full"
                 onClick={() => onDelete(id)}
                 disabled={isDeleting}
                 aria-label="Delete post"
               >
                 {isDeleting ? (
-                  <Loader2 className="w-5 h-5 animate-spin" />
+                  <Loader2 className="w-5 h-5 animate-spin text-red-500" />
                 ) : (
                   <Trash className="w-5 h-5" />
                 )}
-              </Button>
+              </button>
             )}
           </div>
         )}
       </div>
 
-      <p className="text-primary mb-4 leading-relaxed break-words whitespace-pre-wrap">{description}</p>
+      <p className="text-white mb-4 leading-relaxed break-words whitespace-pre-wrap">{description}</p>
 
       {postImage && (
-        <div className="relative w-full aspect-auto rounded-md overflow-hidden mb-4 border-2 border-secondary">
+        <div className="relative w-full aspect-auto rounded-xl overflow-hidden mb-4 border border-gray-800">
           <NextImage
             src={postImage}
             alt="Post Image"
@@ -159,21 +154,30 @@ export default function PostCard({
         </div>
       )}
 
-      <div className="flex items-center gap-4 pt-4 border-t border-secondary">
-        <Button 
-          variant="ghost" 
-          size="sm" 
-          className={`gap-2 ${isLiked ? 'text-red-500' : ''}`}
-          onClick={handleLike}
-          disabled={isLiking}
-        >
-          <Heart className={`w-5 h-5 ${isLiked ? 'fill-current' : ''}`} />
-          <span>{likesCount}</span>
-        </Button>
-        <Button variant="ghost" size="sm" className="gap-2">
-          <MessageCircle className="w-5 h-5" />
-          <span>Comment</span>
-        </Button>
+      <div className="flex items-center justify-between pt-4 border-t border-gray-800">
+        <div className="flex items-center gap-6">
+          {/* Like Button */}
+          <button
+            className={`flex items-center gap-2 group transition-colors ${isLiked ? 'text-pink-500' : 'text-gray-400 hover:text-pink-500'}`}
+            onClick={handleLike}
+            disabled={isLiking}
+          >
+            <div className="p-2 rounded-full group-hover:bg-pink-500/10 transition-colors">
+              <Heart className={`w-5 h-5 ${isLiked ? 'fill-current' : ''} transition-all group-hover:scale-110`} />
+            </div>
+            <span className="text-sm font-medium">{likesCount}</span>
+          </button>
+
+          {/* Comment Button */}
+          <button className="flex items-center gap-2 text-gray-400 hover:text-blue-500 group transition-colors">
+            <div className="p-2 rounded-full group-hover:bg-blue-500/10 transition-colors">
+              <MessageCircle className="w-5 h-5 transition-all group-hover:scale-110" />
+            </div>
+            <span className="text-sm font-medium">Comment</span>
+          </button>
+
+          
+        </div>
       </div>
 
       {onEdit && (
@@ -187,4 +191,4 @@ export default function PostCard({
       )}
     </div>
   );
-} 
+}

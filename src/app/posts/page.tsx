@@ -5,13 +5,14 @@ import { usePostsStore } from '@/store/usePostsStore';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
-import { CircleX, Delete, Image as ImageIcon, Loader2, Trash } from 'lucide-react';
+import { CircleX, Image as ImageIcon, Loader2, Trash } from 'lucide-react';
 import { uploadImage } from '../api/cloudinary';
 import { Shimmer } from '@/components/ui/shimmer';
 import { toast } from 'sonner';
 import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
 import PostCard from '@/components/PostCard';
-import NextImage from 'next/image';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import SuggestedTools from '@/components/SuggestedTools';
 
 const MAX_FILE_SIZE = 5 * 1024 * 1024; // 10MB in bytes
 const ALLOWED_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
@@ -158,151 +159,152 @@ export default function PostsPage() {
     }
 
     return (
-        <div className="max-w-2xl mx-auto mt-10 p-4">
-            <h1 className="text-3xl font-bold mb-6 text-primary">Create a Post</h1>
-            <div className="space-y-4 mb-8">
-                <div className="bg-card p-4 rounded-lg border border-secondary shadow mb-8">
-                    <div className="flex items-center gap-4 mb-4">
-                        {/* Avatar */}
-                        <div className="w-12 h-12 rounded-full bg-secondary overflow-hidden">
-                            {currentUser?.profile_picture_url ? (
-                                <NextImage
-                                    src={currentUser.profile_picture_url}
-                                    alt={currentUser.username || 'User'}
-                                    width={48}
-                                    height={48}
-                                    className="w-full h-full object-cover"
-                                />
-                            ) : (
-                                <div className="w-full h-full flex items-center justify-center text-primary">
-                                    {(currentUser?.username || 'U').charAt(0).toUpperCase()}
-                                </div>
-                            )}
+        <div className="max-w-7xl mx-auto mt-10 p-4">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                {/* Main content - Posts */}
+                <div className="md:col-span-2 space-y-4">
+                    <div className="bg-[#1B2730] p-4 rounded-lg border border-gray shadow mb-8">
+                        <div className="flex items-center gap-3 mb-4">
+                            {/* Avatar */}
+                            <Avatar className="w-10 h-10 border border-gray-700">
+                                {currentUser?.profile_picture_url ? (
+                                    <AvatarImage
+                                        src={currentUser.profile_picture_url}
+                                        alt={currentUser.username || 'User'}
+                                    />
+                                ) : (
+                                    <AvatarFallback className="bg-gray-700 text-white">
+                                        {(currentUser?.username || 'U').charAt(0).toUpperCase()}
+                                    </AvatarFallback>
+                                )}
+                            </Avatar>
+
+                            {/* Input */}
+                            <Textarea
+                                placeholder="What's happening?"
+                                value={description}
+                                onChange={(e) => setDescription(e.target.value)}
+                                className="flex-1 bg-transparent border-none text-white placeholder:text-gray-500 resize-none min-h-[48px] max-h-[200px] overflow-y-auto focus:ring-0 focus:outline-none"
+                                style={{ height: 'auto' }}
+                                onInput={(e) => {
+                                    const target = e.target as HTMLTextAreaElement;
+                                    target.style.height = 'auto';
+                                    target.style.height = `${target.scrollHeight}px`;
+                                }}
+                            />
                         </div>
 
-                        {/* Input */}
-                        <Textarea
-                            placeholder={`What's new, ${currentUser?.username || 'User'}?`}
-                            value={description}
-                            onChange={(e) => setDescription(e.target.value)}
-                            className="flex-1 bg-background text-primary placeholder:text-muted-foreground resize-none min-h-[48px] max-h-[200px] overflow-y-auto"
-                            style={{ height: 'auto' }}
-                            onInput={(e) => {
-                                const target = e.target as HTMLTextAreaElement;
-                                target.style.height = 'auto';
-                                target.style.height = `${target.scrollHeight}px`;
-                            }}
-                        />
+                        {/* Show preview if file selected */}
+                        {file && (
+                            <div className="mb-4 relative">
+                                <img
+                                    src={URL.createObjectURL(file)}
+                                    alt="Preview"
+                                    className="w-full max-h-80 object-cover rounded-lg"
+                                />
+                                <button
+                                    className="absolute top-2 right-2 bg-black bg-opacity-50 rounded-full p-1 hover:bg-opacity-70 transition-colors"
+                                    onClick={() => setFile(null)}
+                                >
+                                    <CircleX className="w-5 h-5 text-white" />
+                                </button>
+                            </div>
+                        )}
+
+                        <div className="flex justify-between items-center">
+                            {/* Media buttons */}
+                            <div className="flex items-center gap-2">
+                                <label className="cursor-pointer">
+                                    <div className="flex items-center justify-center w-10 h-10 rounded-full hover:bg-[#1a1e23] transition-colors">
+                                        <ImageIcon className="w-5 h-5 text-[#1d9bf0]" />
+                                    </div>
+                                    <input
+                                        type="file"
+                                        className="hidden"
+                                        title="Upload Image"
+                                        accept="image/jpeg,image/png,image/gif,image/webp"
+                                        onChange={handleFileChange}
+                                    />
+                                </label>
+                            </div>
+
+                            {/* Post Button */}
+                            <Button
+                                onClick={handleCreatePost}
+                                disabled={!description.trim() && !file || isCreating}
+                                className="rounded-full bg-[#1d9bf0] hover:bg-[#1a8cd8] text-white font-bold px-5 py-2"
+                            >
+                                {isCreating ? (
+                                    <>
+                                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                                        Posting...
+                                    </>
+                                ) : (
+                                    'Post'
+                                )}
+                            </Button>
+                        </div>
                     </div>
 
-                    <div className="border-t border-secondary pt-4 flex justify-between items-center">
-                        {/* Left side - Photo/Video Button and Preview */}
-                        <div className="flex items-center gap-4">
-                            <label className="cursor-pointer">
-                                <div className="w-10 h-10 rounded-full bg-secondary flex items-center justify-center">
-                                    <ImageIcon width={20} height={20} className="text-primary"/>
-                                </div>
-                                <input
-                                    type="file"
-                                    className="hidden"
-                                    title="Upload Image"
-                                    accept="image/jpeg,image/png,image/gif,image/webp"
-                                    onChange={handleFileChange}
-                                />
-                            </label>
-
-                            {/* Show preview if file selected */}
-                            {file && (
-                                <div className="flex items-center gap-3 p-2 border border-secondary rounded-md bg-card shadow-sm">
-                                    {/* Small thumbnail */}
-                                    <img
-                                        src={URL.createObjectURL(file)}
-                                        alt="Preview"
-                                        className="w-10 h-10 object-cover rounded-md flex-shrink-0"
-                                    />
-                                    {/* File info */}
-                                    <div className="flex flex-col text-sm text-primary truncate">
-                                        <span className="font-semibold max-w-[200px] truncate">{file.name}</span>
-                                        <span className="text-muted-foreground">{file.type}</span>
+                    <div className="space-y-4">
+                        {isLoading && currentPage === 1 ? (
+                            // Loading shimmer
+                            Array.from({ length: 3 }).map((_, index) => (
+                                <div key={index} className="border border-gray-800 rounded-lg bg-[#0f1419] p-5">
+                                    <div className="flex justify-between items-start mb-3">
+                                        <Shimmer className="h-8 w-3/4 rounded bg-gray-800" />
+                                        <Shimmer className="h-8 w-8 rounded-full bg-gray-800" />
                                     </div>
-                                    {/* Remove file button */}
-                                    <CircleX
-                                        className="w-4 h-4 cursor-pointer text-muted-foreground hover:text-destructive transition-colors"
-                                        onClick={() => setFile(null)}
-                                    />
+                                    <Shimmer className="h-4 w-full rounded mb-2 bg-gray-800" />
+                                    <Shimmer className="h-4 w-2/3 rounded mb-4 bg-gray-800" />
+                                    <Shimmer className="h-48 w-full rounded mb-4 bg-gray-800" />
+                                    <Shimmer className="h-4 w-1/4 rounded ml-auto bg-gray-800" />
                                 </div>
-                            )}
-                        </div>
+                            ))
+                        ) : posts.length === 0 ? (
+                            <div className="border border-gray-800 rounded-lg bg-[#0f1419] p-8 text-center">
+                                <p className="text-gray-400">No posts yet. Create one above!</p>
+                            </div>
+                        ) : (
+                            posts.map((post, index) => {
+                                const username = post.users?.username || 'Unknown User';
+                                const userIcon = post.users?.profile_picture_url || '';
+                                const isLastElement = index === posts.length - 1;
 
-                        {/* Right side - Post Button */}
-                        <Button
-                            onClick={handleCreatePost}
-                            disabled={!description.trim() && !file || isCreating}
-                            className="ml-auto bg-secondary hover:bg-secondary/80 text-primary"
-                        >
-                            {isCreating ? (
-                                <>
-                                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                                    Posting...
-                                </>
-                            ) : (
-                                'Post'
-                            )}
-                        </Button>
+                                return (
+                                    <div
+                                        key={post.id}
+                                        ref={isLastElement ? lastPostElementRef : undefined}
+                                    >
+                                        <PostCard
+                                            id={post.id}
+                                            username={username}
+                                            userIcon={userIcon}
+                                            description={post.description}
+                                            postImage={post.image_url}
+                                            postDate={post.created_at}
+                                            userId={post.user_id}
+                                            likes={post.likes || 0}
+                                            onDelete={handleDeletePost}
+                                            isDeleting={deletingPostId === post.id}
+                                            onEdit={handleEditPost}
+                                        />
+                                    </div>
+                                );
+                            })
+                        )}
+                        {isLoading && currentPage > 1 && (
+                            <div className="flex justify-center py-4">
+                                <Loader2 className="w-6 h-6 animate-spin text-white" />
+                            </div>
+                        )}
                     </div>
                 </div>
-            </div>
-            <h2 className="text-2xl font-semibold mb-4 text-primary">Posts</h2>
-            <div className="space-y-4">
-                {isLoading && currentPage === 1 ? (
-                    // Loading shimmer
-                    Array.from({ length: 3 }).map((_, index) => (
-                        <div key={index} className="border border-secondary rounded-lg bg-card p-5">
-                            <div className="flex justify-between items-start mb-3">
-                                <Shimmer className="h-8 w-3/4 rounded" />
-                                <Shimmer className="h-8 w-8 rounded-full" />
-                            </div>
-                            <Shimmer className="h-4 w-full rounded mb-2" />
-                            <Shimmer className="h-4 w-2/3 rounded mb-4" />
-                            <Shimmer className="h-48 w-full rounded mb-4" />
-                            <Shimmer className="h-4 w-1/4 rounded ml-auto" />
-                        </div>
-                    ))
-                ) : posts.length === 0 ? (
-                    <p className="text-muted-foreground">No posts yet. Create one!</p>
-                ) : (
-                    posts.map((post, index) => {
-                        const username = post.users?.username || 'Unknown User';
-                        const userIcon = post.users?.profile_picture_url || '';
-                        const isLastElement = index === posts.length - 1;
-                        
-                        return (
-                            <div
-                                key={post.id}
-                                ref={isLastElement ? lastPostElementRef : undefined}
-                            >
-                                <PostCard
-                                    id={post.id}
-                                    username={username}
-                                    userIcon={userIcon}
-                                    description={post.description}
-                                    postImage={post.image_url}
-                                    postDate={post.created_at}
-                                    userId={post.user_id}
-                                    likes={post.likes || 0}
-                                    onDelete={handleDeletePost}
-                                    isDeleting={deletingPostId === post.id}
-                                    onEdit={handleEditPost}
-                                />
-                            </div>
-                        );
-                    })
-                )}
-                {isLoading && currentPage > 1 && (
-                    <div className="flex justify-center py-4">
-                        <Loader2 className="w-6 h-6 animate-spin text-primary" />
-                    </div>
-                )}
+
+                {/* Right Sidebar */}
+                <div className="hidden md:block space-y-4 relative min-h-screen">
+                    <SuggestedTools />
+                </div>
             </div>
         </div>
     );
